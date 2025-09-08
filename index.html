@@ -1,12 +1,303 @@
-
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-   
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;         /* slate-900 */
+      --panel: #111827;      /* gray-900 */
+      --panel-2: #1f2937;    /* gray-800 */
+      --text: #e5e7eb;       /* gray-200 */
+      --muted: #9ca3af;      /* gray-400 */
+      --accent: #22d3ee;     /* cyan-400 */
+      --warn: #f43f5e;       /* rose-500 */
+      --ok: #34d399;         /* emerald-400 */
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 800px at 20% 20%, #0b1024, #060913 60%, #04070f);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .calc {
+      width: 100%;
+      max-width: 360px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      outline: 1px solid rgba(255,255,255,.06);
+    }
+
+    .screen {
+      min-height: 120px;
+      padding: 18px 20px;
+      display: grid;
+      align-content: end;
+      gap: 6px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+    }
+    .screen .prev {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      text-align: right;
+      user-select: none;
+      word-break: break-all;
+    }
+    .screen .curr {
+      font-size: 36px;
+      font-weight: 700;
+      text-align: right;
+      line-height: 1.25;
+      word-break: break-all;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 16px;
+      background: rgba(0,0,0,.1);
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 12px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      background: #111827;
+      cursor: pointer;
+      transition: transform .05s ease, background .2s ease, box-shadow .2s ease;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 6px 14px rgba(0,0,0,.25);
+    }
+    button:active {
+      transform: translateY(1px) scale(0.995);
+    }
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .op   { background: #0b1224; }
+    .op[data-op="="] { background: linear-gradient(180deg, #0b1224, #102a35); }
+    .util { background: #0e1322; color: #cbd5e1; }
+    .accent { background: #0e2a33; }
+
+    .span-2 { grid-column: span 2; }
+
+    .footer {
+      padding: 10px 16px 16px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-   <h1> hello my name is lavkush</h1>
-   <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Sed, in.</p>
-    
+  <main class="calc" role="application" aria-label="Basic calculator">
+    <section class="screen" aria-live="polite" aria-atomic="true">
+      <div id="prev" class="prev" aria-hidden="true"></div>
+      <div id="curr" class="curr">0</div>
+    </section>
+
+    <section class="keys" aria-label="Calculator keys">
+      <button class="util" data-action="clear" aria-label="Clear all (Esc)">AC</button>
+      <button class="util" data-action="delete" aria-label="Delete (Backspace)">DEL</button>
+      <button class="util" data-action="negate" aria-label="Toggle sign">±</button>
+      <button class="op" data-op="/" aria-label="Divide">÷</button>
+
+      <button data-num>7</button>
+      <button data-num>8</button>
+      <button data-num>9</button>
+      <button class="op" data-op="*" aria-label="Multiply">×</button>
+
+      <button data-num>4</button>
+      <button data-num>5</button>
+      <button data-num>6</button>
+      <button class="op" data-op="-" aria-label="Subtract">−</button>
+
+      <button data-num>1</button>
+      <button data-num>2</button>
+      <button data-num>3</button>
+      <button class="op" data-op="+" aria-label="Add">+</button>
+
+      <button class="accent span-2" data-num>0</button>
+      <button data-action="decimal" aria-label="Decimal point">.</button>
+      <button class="op" data-op="=" aria-label="Equals (Enter)">=</button>
+    </section>
+
+    <div class="footer">Keyboard: 0–9 • . • + − × ÷ • Enter = • Backspace DEL • Esc AC</div>
+  </main>
+
+  <script>
+    // --- Calculator State ---
+    const prevEl = document.getElementById('prev');
+    const currEl = document.getElementById('curr');
+    const keys = document.querySelector('.keys');
+
+    let current = '0';
+    let previous = '';
+    let operator = null;
+    let justEvaluated = false;
+
+    function updateDisplay() {
+      currEl.textContent = current;
+      prevEl.textContent = previous + (operator && previous !== '' ? ' ' + symbolFor(operator) : '');
+    }
+
+    function symbolFor(op) {
+      return op === '*' ? '×' : op === '/' ? '÷' : op;
+    }
+
+    function appendDigit(d) {
+      if (justEvaluated) {
+        current = d;
+        justEvaluated = false;
+        updateDisplay();
+        return;
+      }
+      if (current === '0') {
+        current = d;
+      } else {
+        current += d;
+      }
+      updateDisplay();
+    }
+
+    function addDecimal() {
+      if (justEvaluated) {
+        current = '0.';
+        justEvaluated = false;
+        return updateDisplay();
+      }
+      if (!current.includes('.')) {
+        current += '.';
+        updateDisplay();
+      }
+    }
+
+    function clearAll() {
+      current = '0';
+      previous = '';
+      operator = null;
+      justEvaluated = false;
+      updateDisplay();
+    }
+
+    function deleteDigit() {
+      if (justEvaluated) {
+        // after equals, DEL behaves like AC
+        return clearAll();
+      }
+      if (current.length <= 1 || (current.length === 2 && current.startsWith('-'))) {
+        current = '0';
+      } else {
+        current = current.slice(0, -1);
+      }
+      updateDisplay();
+    }
+
+    function toggleSign() {
+      if (current === '0') return; 
+      if (current.startsWith('-')) current = current.slice(1); else current = '-' + current;
+      updateDisplay();
+    }
+
+    function chooseOperator(op) {
+      if (op === '=') {
+        return compute();
+      }
+      if (operator && !justEvaluated) {
+        // chain operations (e.g., 2 + 3 + 4)
+        compute();
+      }
+      previous = current;
+      current = '0';
+      operator = op;
+      justEvaluated = false;
+      updateDisplay();
+    }
+
+    function compute() {
+      if (!operator || previous === '') return;
+      const a = parseFloat(previous);
+      const b = parseFloat(current);
+      let result = 0;
+      switch (operator) {
+        case '+': result = a + b; break;
+        case '-': result = a - b; break;
+        case '*': result = a * b; break;
+        case '/':
+          if (b === 0) {
+            current = 'Cannot divide by 0';
+            previous = '';
+            operator = null;
+            justEvaluated = true;
+            return updateDisplay();
+          }
+          result = a / b; break;
+      }
+      // format result: avoid long floating garbage
+      current = formatNumber(result);
+      previous = '';
+      operator = null;
+      justEvaluated = true;
+      updateDisplay();
+    }
+
+    function formatNumber(num) {
+      // Limit to 12 significant digits, then strip trailing zeros
+      const s = Number(num.toPrecision(12)).toString();
+      return s;
+    }
+
+    // --- Mouse / touch ---
+    keys.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.hasAttribute('data-num')) {
+        appendDigit(btn.textContent.trim());
+      } else if (btn.dataset.action === 'decimal') {
+        addDecimal();
+      } else if (btn.dataset.action === 'clear') {
+        clearAll();
+      } else if (btn.dataset.action === 'delete') {
+        deleteDigit();
+      } else if (btn.dataset.action === 'negate') {
+        toggleSign();
+      } else if (btn.classList.contains('op')) {
+        chooseOperator(btn.dataset.op);
+      }
+    });
+
+    // --- Keyboard support ---
+    window.addEventListener('keydown', (e) => {
+      const k = e.key;
+      if (/^[0-9]$/.test(k)) return appendDigit(k);
+      if (k === '.') return addDecimal();
+      if (k === '+' || k === '-' || k === '*' || k === '/') return chooseOperator(k);
+      if (k === 'Enter' || k === '=') return chooseOperator('=');
+      if (k === 'Backspace') return deleteDigit();
+      if (k === 'Escape') return clearAll();
+    });
+
+    // init
+    updateDisplay();
+  </script>
 </body>
-</html> 
+</html>
